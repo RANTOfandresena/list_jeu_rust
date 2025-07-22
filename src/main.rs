@@ -48,7 +48,8 @@ async fn main() -> Result<(),MainError> {
     let address = (*utils::constants::ADDRESS).clone();
     let database_url = (*utils::constants::DATABASE_URL).clone();
     let db: DatabaseConnection = Database::connect(database_url).await.map_err(|err|MainError{message:err.to_string()})?;
-    let room_server = Lobby::new(db.clone()).start();
+    let room_server = Lobby::new().start();
+    // let room_server = Lobby::new(db.clone()).start();
     
     // Migrator::up(&db,None)
     Migrator::fresh(&db)

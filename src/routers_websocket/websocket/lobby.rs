@@ -1,9 +1,8 @@
 use actix::prelude::{Actor, Context, Handler, Recipient};
-use sea_orm::DatabaseConnection;
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
-use crate::{list_jeu::faritany::faritany_logique::FaritanyLogique, routers_websocket::websocket::messages::{ClientActorMessage, Connect, Disconnect, WsMessage}};
+use crate::{list_jeu::{faritany::faritany_logique::FaritanyLogique, game_logic::GameLogic}, routers_websocket::websocket::messages::{ClientActorMessage, Connect, Disconnect, WsMessage}};
 
 
 type Socket = Recipient<WsMessage>;
@@ -11,18 +10,19 @@ type Socket = Recipient<WsMessage>;
 pub struct Lobby {
     sessions: HashMap<i32, Socket>, //self id to self
     rooms: HashMap<Uuid, HashSet<i32>>,      //room id  to list of users id
-    db: DatabaseConnection,
-    faritany: HashMap<Uuid, FaritanyLogique>,
+    // db: DatabaseConnection,
+    // faritany: HashMap<Uuid, FaritanyLogique>,
     games: HashMap<Uuid, Box<dyn GameLogic>>,
 }
 
 impl Lobby {
-    pub fn new(db: DatabaseConnection) -> Self {
+    // pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new() -> Self {
         Self {
             sessions: HashMap::new(),
             rooms: HashMap::new(),
-            db: db,
-            faritany: HashMap::new(),
+            // db: db,
+            games: HashMap::new(),
         }
     }
 }
@@ -36,40 +36,38 @@ impl Lobby {
             println!("attempting to send message but couldn't find user id.");
         }
     }
-
+    fn get_or_create_game(&mut self, room_id: Uuid, game_type: &str) -> Option<&mut Box<dyn GameLogic>> {
+        if !self.games.contains_key(&room_id) {
+            let new_game: Box<dyn GameLogic> = match game_type {
+                "faritany" => Box::new(FaritanyLogique::new(30)),
+                // "jeu_de_point" => Box::new(JeuDePointLogique::new()),
+                _ => {
+                    println!("Type de jeu inconnu: {}", game_type);
+                    return None;
+                }
+            };
+            self.games.insert(room_id, new_game);
+        }
+        self.games.get_mut(&room_id)
+    }
+    
     fn action_type_jeu(&mut self, msg: ClientActorMessage) -> Option<String> {
-        match msg.type_jeu.as_str() {
-            "faritany" => {
-                let etat = self.faritany.entry(msg.room_id)
-                    .or_insert(FaritanyLogique::new(30));
-
-                etat.jouer_coup(&msg.msg, &msg.user.id)
-            },
-            "jeu_de_point" => {
-                println!("Réponse au quizz: ");
-                Some(format!("Quizz: "))
-            }
-            _ => None,
+        if let Some(game_instance) = self.get_or_create_game(msg.room_id, &msg.type_jeu) {
+            game_instance.handle_client_message(&msg.msg, &msg.user.id)
+        } else {
+            None
         }
     }
-    fn connecte_room(&mut self, msg: Connect){
-        match msg.type_jeu.as_str() {
-            "faritany" => {
-                let etat = self.faritany.entry(msg.lobby_id)
-                    .or_insert(FaritanyLogique::new(30));
-                match etat.atribuer_role(msg.self_id.id, msg.self_id.pseudo) {
-                    Some(data) => {self.send_message(&data, &msg.self_id.id);
-                    },
-                    None => {
-                        println!("Aucun rôle attribué (probablement déjà 2 joueurs)");
-                    }
-                } 
-                
-            },
-            "jeu_de_point" => {
-                println!("jeu_de_point");
+
+    fn connecte_room(&mut self, msg: Connect) {
+        if let Some(game_instance) = self.get_or_create_game(msg.lobby_id, &msg.type_jeu) {
+            if let Some(data) = game_instance.handle_connect(msg.self_id.id, msg.self_id.pseudo) {
+                self.send_message(&data, &msg.self_id.id);
+            } else {
+                println!("Aucun message à envoyer après la connexion ou gestion interne par le jeu.");
             }
-            _ => (),
+        } else {
+            println!("Impossible de connecter à la room pour le type de jeu {}", msg.type_jeu);
         }
     }
 }
@@ -95,6 +93,7 @@ impl Handler<Disconnect> for Lobby {
                 } else {
                     //only one in the lobby, remove it entirely
                     self.rooms.remove(&msg.room_id);
+                    self.games.remove(&msg.room_id);
                 }
             }
         }

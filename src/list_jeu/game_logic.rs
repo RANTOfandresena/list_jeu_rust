@@ -1,6 +1,8 @@
+use crate::routers_websocket::websocket::messages::MessageClient;
+
 pub trait GameLogic {
     // action du client spécifique à un jeu
-    fn handle_client_message(&mut self, message_content: &str, user_id: &i32) -> Option<String>;
+    fn handle_client_message(&mut self, message_content: &MessageClient, user_id: &i32) -> Option<String>;
 
     // connexion d'un utilisateur à un jeu
     fn handle_connect(&mut self, user_id: i32, user_pseudo: String) -> Option<String>;
