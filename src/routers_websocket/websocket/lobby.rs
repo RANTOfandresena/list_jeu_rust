@@ -39,7 +39,7 @@ impl Lobby {
     fn get_or_create_game(&mut self, room_id: Uuid, game_type: &str) -> Option<&mut Box<dyn GameLogic>> {
         if !self.games.contains_key(&room_id) {
             let new_game: Box<dyn GameLogic> = match game_type {
-                "faritany" => Box::new(FaritanyLogique::new(30)),
+                "faritany" => Box::new(FaritanyLogique::new(30,30)),
                 // "jeu_de_point" => Box::new(JeuDePointLogique::new()),
                 _ => {
                     println!("Type de jeu inconnu: {}", game_type);
@@ -51,7 +51,7 @@ impl Lobby {
         self.games.get_mut(&room_id)
     }
     
-    fn action_type_jeu(&mut self, msg: ClientActorMessage) -> Option<String> {
+    fn action_type_game(&mut self, msg: &ClientActorMessage) -> Option<String> {
         if let Some(game_instance) = self.get_or_create_game(msg.room_id, &msg.type_jeu) {
             game_instance.handle_client_message(&msg.msg, &msg.user.id)
         } else {
@@ -59,9 +59,9 @@ impl Lobby {
         }
     }
 
-    fn connecte_room(&mut self, msg: Connect) {
+    fn connecte_room(&mut self, msg: &Connect){
         if let Some(game_instance) = self.get_or_create_game(msg.lobby_id, &msg.type_jeu) {
-            if let Some(data) = game_instance.handle_connect(msg.self_id.id, msg.self_id.pseudo) {
+            if let Some(data) = game_instance.handle_connect(msg.self_id.id, msg.self_id.pseudo.clone()) {
                 self.send_message(&data, &msg.self_id.id);
             } else {
                 println!("Aucun message à envoyer après la connexion ou gestion interne par le jeu.");
@@ -111,17 +111,20 @@ impl Handler<Connect> for Lobby {
             addr_clone,
         );
 
-        self.connecte_room(msg.clone()); 
 
         self.rooms
             .entry(msg.lobby_id)
-            .or_insert_with(HashSet::new).insert(msg.self_id.id);
+            .or_insert_with(HashSet::new)
+            .insert(msg.self_id.id);
+
+        self.connecte_room(&msg); 
+
         self
             .rooms
             .get(&msg.lobby_id)
             .unwrap()
             .iter()
-            .filter(|conn_id| *conn_id.to_owned() != msg.self_id.id)
+            .filter(|conn_id| **conn_id != msg.self_id.id)
             .for_each(|conn_id| self.send_message(&format!("{} just joined!", msg.self_id.pseudo), conn_id));
 
         
@@ -133,7 +136,7 @@ impl Handler<ClientActorMessage> for Lobby {
     type Result = ();
 
     fn handle(&mut self, msg: ClientActorMessage, _ctx: &mut Context<Self>) -> Self::Result {
-        if let Some(message) = self.action_type_jeu(msg.clone()) {
+        if let Some(message) = self.action_type_game(&msg) {
             if let Some(clients) = self.rooms.get(&msg.room_id) {
                 for client in clients {
                     self.send_message(&message, client);

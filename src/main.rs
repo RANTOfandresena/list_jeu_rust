@@ -52,8 +52,8 @@ async fn main() -> Result<(),MainError> {
     // let room_server = Lobby::new(db.clone()).start();
     
     // Migrator::up(&db,None)
-    Migrator::fresh(&db)
-    .await.map_err(|err|MainError{message:err.to_string()})?;
+    // Migrator::fresh(&db)
+    // .await.map_err(|err|MainError{message:err.to_string()})?;
 
     HttpServer::new(move|| {
         App::new()

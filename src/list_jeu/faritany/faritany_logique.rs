@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use chrono::{DateTime, Utc};
+
 use crate::list_jeu::faritany::grid::Grid;
 use crate::list_jeu::faritany::player::Player;
 use crate::list_jeu::game_logic::GameLogic;
@@ -10,43 +12,69 @@ pub struct FaritanyLogique {
     pub grid: Grid,
     pub joueur_courant: Player, 
     pub joueurs: HashMap<i32, Player>,
+    pub tour_commence_at: Option<DateTime<Utc>>,
+    pub duree_tour_secondes: i64,
 }
 
 
 impl FaritanyLogique {
-    pub fn new(size: i32) -> Self {
+    pub fn new(size: i32,reflexion: i64) -> Self {
         Self {
             grid: Grid::new(size),
             joueur_courant: Player::PLAYER_1,
             joueurs: HashMap::new(),
+            tour_commence_at: None, 
+            duree_tour_secondes: reflexion,
         }
     }
     pub fn get_role(&self, user_id: &i32) -> Option<&Player> {
         self.joueurs.get(user_id)
     }
+    fn passer_tour(&mut self) {
+        self.joueur_courant = match self.joueur_courant {
+            Player::PLAYER_1 => Player::PLAYER_2,
+            Player::PLAYER_2 => Player::PLAYER_1,
+        };
+    }
 
+    fn verifier_si_tour_expire(&mut self,joueur : Player) {
+        if let Some(debut) = self.tour_commence_at {
+            let maintenant = Utc::now();
+            let ecoule = maintenant.signed_duration_since(debut);
+            let secondes_ecoulees = ecoule.num_seconds();
+
+            if (secondes_ecoulees / self.duree_tour_secondes) % 2 == 1 && self.joueur_courant != joueur{
+                self.passer_tour();
+            }
+        } else {
+            self.tour_commence_at = Some(Utc::now());
+        }
+    }
 }
 impl GameLogic for FaritanyLogique {
     fn handle_client_message(&mut self, message_content: &MessageClient, user_id: &i32) -> Option<String> {
+        let role = match self.get_role(user_id) {
+            Some(r) => *r,
+            None => return None,
+        };
+
+        self.verifier_si_tour_expire(role);
+
         let MessageClient::PlaceStone { point, .. } = message_content;
-        if let Some(role) = self.get_role(user_id) {
-            if self.grid.is_cell_empty(point) && self.joueur_courant == *role {
-                self.grid.place_stone(*point, self.joueur_courant);
 
-                let message_server = serde_json::to_string(&MessageServeur {
-                        type_: "place-stone".to_string(),
-                        point: *point,
-                        player: format!("{:?}", self.joueur_courant),
-                    }).unwrap();
-                
-                self.joueur_courant = if self.joueur_courant == Player::PLAYER_1 {
-                    Player::PLAYER_2
-                } else {
-                    Player::PLAYER_1
-                };
+        if self.grid.is_cell_empty(point) && self.joueur_courant == role {
+            self.grid.place_stone(*point, self.joueur_courant);
 
-                return Some(message_server);
-            }
+            let message_server = serde_json::to_string(&MessageServeur {
+                type_: "place-stone".to_string(),
+                point: *point,
+                player: format!("{:?}", self.joueur_courant),
+            }).unwrap();
+
+            self.passer_tour();
+            self.tour_commence_at = Some(Utc::now());
+
+            return Some(message_server);
         }
 
         None
@@ -69,14 +97,15 @@ impl GameLogic for FaritanyLogique {
 
         let message = MessageServeurFanorona {
             pseudo: user_pseudo,
-            localPlayer: format!("{:?}", Some(role)),
+            localPlayer: format!("{:?}", role),
             currentPlayer: self.joueur_courant == role,
         };
 
         serde_json::to_string(&message).ok()
     }
 
-    fn handle_deconnect(&mut self, user_id: i32, user_pseudo: String) -> Option<String> {
-        todo!()
+    fn handle_deconnect(&mut self, user_id: i32, _user_pseudo: String) -> Option<String> {
+        self.joueurs.remove(&user_id);
+        Some(format!("{} s'est déconnecté.", user_id))
     }
 }
