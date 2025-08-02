@@ -1,11 +1,12 @@
 use std::{error::Error, fmt::Display};
 
-use actix_web::{web, App, HttpServer};
+use actix_web::{http, middleware::DefaultHeaders, web, App, HttpServer};
+use actix_cors::Cors;
 use actix::Actor;
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{ Database, DatabaseConnection};
 
-use crate::{routers_websocket::websocket::lobby::Lobby, utils::app_state::AppState};
+use crate::{routers_websocket::websocket::lobby::Lobby, utils::{app_state::AppState}};
 
 mod utils;
 mod routers_http;
@@ -57,6 +58,14 @@ async fn main() -> Result<(),MainError> {
 
     HttpServer::new(move|| {
         App::new()
+            .wrap(
+                Cors::default()
+                    .allowed_origin("http://localhost:8080")
+                    .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+                    .allowed_headers(vec![http::header::CONTENT_TYPE, http::header::AUTHORIZATION])
+                    .max_age(3600)
+            )
+            .wrap(DefaultHeaders::new().add(("Referrer-Policy", "no-referrer")))
             .app_data(web::Data::new(AppState { db: db.clone() } ))
             .app_data(web::Data::new(room_server.clone()))
             .wrap(actix_web::middleware::Logger::default())
@@ -73,4 +82,7 @@ async fn main() -> Result<(),MainError> {
     .await
     .map_err(|err|MainError{message:err.to_string()})
 }
+
+
+
 

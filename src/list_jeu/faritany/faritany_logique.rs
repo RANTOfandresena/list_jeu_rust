@@ -37,18 +37,22 @@ impl FaritanyLogique {
         };
     }
 
-    fn verifier_si_tour_expire(&mut self,joueur : Player) {
+    fn verifier_tour(&mut self, joueur: Player) -> bool {
         if let Some(debut) = self.tour_commence_at {
             let maintenant = Utc::now();
             let ecoule = maintenant.signed_duration_since(debut);
             let secondes_ecoulees = ecoule.num_seconds();
 
-            if (secondes_ecoulees / self.duree_tour_secondes) % 2 == 1 && self.joueur_courant != joueur{
+            if (secondes_ecoulees / self.duree_tour_secondes) % 2 == 1 && self.joueur_courant != joueur {
                 self.passer_tour();
+                return true;
+            } else if (secondes_ecoulees / self.duree_tour_secondes) % 2 == 1 && self.joueur_courant == joueur {
+                return false;
             }
         } else {
             self.tour_commence_at = Some(Utc::now());
         }
+        true
     }
 }
 impl GameLogic for FaritanyLogique {
@@ -58,7 +62,9 @@ impl GameLogic for FaritanyLogique {
             None => return None,
         };
 
-        self.verifier_si_tour_expire(role);
+        if !self.verifier_tour(role) {
+            return None;
+        }
 
         let MessageClient::PlaceStone { point, .. } = message_content;
 
@@ -66,7 +72,7 @@ impl GameLogic for FaritanyLogique {
             self.grid.place_stone(*point, self.joueur_courant);
 
             let message_server = serde_json::to_string(&MessageServeur {
-                type_: "place-stone".to_string(),
+                type_m: "place-stone".to_string(),
                 point: *point,
                 player: format!("{:?}", self.joueur_courant),
             }).unwrap();
@@ -81,7 +87,8 @@ impl GameLogic for FaritanyLogique {
     }
 
     fn handle_connect(&mut self, user_id: i32, user_pseudo: String) -> Option<String> {
-                if self.joueurs.contains_key(&user_id) {
+        if self.joueurs.contains_key(&user_id) {
+            println!("Déjà un joueurs ");
             return None;
         }
         let role = match self.joueurs.len() {
@@ -96,6 +103,7 @@ impl GameLogic for FaritanyLogique {
         self.joueurs.insert(user_id, role);
 
         let message = MessageServeurFanorona {
+            type_m: "assign-player".to_string(),
             pseudo: user_pseudo,
             localPlayer: format!("{:?}", role),
             currentPlayer: self.joueur_courant == role,

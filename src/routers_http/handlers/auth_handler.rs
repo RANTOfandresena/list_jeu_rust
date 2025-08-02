@@ -7,6 +7,7 @@ use sea_orm::ActiveModelTrait;
 use sea_orm::ColumnTrait;
 use serde::Deserialize;
 use serde::Serialize;
+use serde_json::json;
 use sha256::digest;
 
 use crate::utils::api_response::ApiResponse;
@@ -58,5 +59,6 @@ pub async fn login(
 
     let key = encode_jwt(utilisateur.pseudo, utilisateur.id)
         .map_err(|err| ApiResponse::new(500, err.to_string()))?;
-    Ok(api_response::ApiResponse::new(200, format!("{{'token':'{}'}}",key)))
+    let body = json!({ "token": key }).to_string();
+    Ok(api_response::ApiResponse::new(200, body))
 }

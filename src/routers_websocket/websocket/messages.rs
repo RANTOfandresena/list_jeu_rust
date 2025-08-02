@@ -38,19 +38,19 @@ pub enum MessageClient {
     #[serde(rename = "place-stone")]
     PlaceStone {
         point: Point,
-        player: String,
     },
 }
 
 #[derive(Serialize)]
 pub struct MessageServeur {
-    pub type_: String,
+    pub type_m: String,
     pub point: Point,
     pub player: String,
 }
 
 #[derive(Serialize)]
 pub struct MessageServeurFanorona {
+    pub type_m: String,
     pub pseudo: String,
     pub localPlayer: String,
     pub currentPlayer: bool,
