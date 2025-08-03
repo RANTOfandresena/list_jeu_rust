@@ -41,17 +41,4 @@ pub enum MessageClient {
     },
 }
 
-#[derive(Serialize)]
-pub struct MessageServeur {
-    pub type_m: String,
-    pub point: Point,
-    pub player: String,
-}
 
-#[derive(Serialize)]
-pub struct MessageServeurFanorona {
-    pub type_m: String,
-    pub pseudo: String,
-    pub localPlayer: String,
-    pub currentPlayer: bool,
-}

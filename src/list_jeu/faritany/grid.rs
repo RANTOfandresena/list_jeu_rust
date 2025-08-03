@@ -25,6 +25,9 @@ impl Grid {
             size,
         }
     }
+    pub fn get_Cell(&self) -> HashMap<String, Option<Player>>{
+        self.occupied_cells.clone()
+    }
 
     pub fn is_cell_empty(&self, point: &Point) -> bool {
         !self.occupied_cells.contains_key(&point.to_string())

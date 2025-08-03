@@ -3,9 +3,10 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
 use crate::list_jeu::faritany::grid::Grid;
+use crate::list_jeu::faritany::message::MessageServeurFaritany;
 use crate::list_jeu::faritany::player::Player;
 use crate::list_jeu::game_logic::GameLogic;
-use crate::routers_websocket::websocket::messages::{MessageClient, MessageServeur, MessageServeurFanorona};
+use crate::routers_websocket::websocket::messages::{MessageClient};
 
 #[derive(Debug, Clone)]
 pub struct FaritanyLogique {
@@ -71,8 +72,7 @@ impl GameLogic for FaritanyLogique {
         if self.grid.is_cell_empty(point) && self.joueur_courant == role {
             self.grid.place_stone(*point, self.joueur_courant);
 
-            let message_server = serde_json::to_string(&MessageServeur {
-                type_m: "place-stone".to_string(),
+            let message_server = serde_json::to_string(&MessageServeurFaritany::PlacementPoint {
                 point: *point,
                 player: format!("{:?}", self.joueur_courant),
             }).unwrap();
@@ -88,8 +88,13 @@ impl GameLogic for FaritanyLogique {
 
     fn handle_connect(&mut self, user_id: i32, user_pseudo: String) -> Option<String> {
         if self.joueurs.contains_key(&user_id) {
-            println!("Déjà un joueurs ");
-            return None;
+            let points_vec: Vec<(String, Option<Player>)> = self.grid
+                .get_Cell()
+                .into_iter()
+                .collect();
+
+            let message = MessageServeurFaritany::ListePointsFaritany { points: points_vec };
+            return serde_json::to_string(&message).ok();
         }
         let role = match self.joueurs.len() {
             0 => Player::PLAYER_1,
@@ -102,8 +107,7 @@ impl GameLogic for FaritanyLogique {
 
         self.joueurs.insert(user_id, role);
 
-        let message = MessageServeurFanorona {
-            type_m: "assign-player".to_string(),
+        let message = MessageServeurFaritany::AttributionJoueur {
             pseudo: user_pseudo,
             localPlayer: format!("{:?}", role),
             currentPlayer: self.joueur_courant == role,
