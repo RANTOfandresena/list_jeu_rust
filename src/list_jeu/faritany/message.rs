@@ -22,6 +22,8 @@ pub enum MessageServeurFaritany {
 
     #[serde(rename = "points-faritany")]
     ListePointsFaritany {
-        points : Vec<(String, Option<Player>)>,
+        points : HashMap<String, Option<Player>>,
+        localPlayer: Player,
+        currentPlayer: bool,
     }
 }

@@ -87,13 +87,12 @@ impl GameLogic for FaritanyLogique {
     }
 
     fn handle_connect(&mut self, user_id: i32, user_pseudo: String) -> Option<String> {
-        if self.joueurs.contains_key(&user_id) {
-            let points_vec: Vec<(String, Option<Player>)> = self.grid
-                .get_Cell()
-                .into_iter()
-                .collect();
-
-            let message = MessageServeurFaritany::ListePointsFaritany { points: points_vec };
+        if let Some(player) = self.joueurs.get(&user_id) {
+            let message = MessageServeurFaritany::ListePointsFaritany { 
+                points: self.grid.get_Cell(),
+                localPlayer: *player,
+                currentPlayer: self.joueur_courant == *player
+            };
             return serde_json::to_string(&message).ok();
         }
         let role = match self.joueurs.len() {
