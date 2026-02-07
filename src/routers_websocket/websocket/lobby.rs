@@ -70,6 +70,17 @@ impl Lobby {
             println!("Impossible de connecter à la room pour le type de jeu {}", msg.type_jeu);
         }
     }
+    fn disconnecte_room(&mut self, msg: &Disconnect){
+        if let Some(game_instance) = self.games.get_mut(&msg.room_id) {
+            if let Some(data) = game_instance.handle_deconnect(msg.user.id, msg.user.pseudo.clone()) {
+                self.send_message(&data, &msg.user.id);
+            } else {
+                println!("Aucun message à envoyer après la connexion ou gestion interne par le jeu.");
+            }
+        } else {
+            println!("Impossible de connecter à la room pour le type de jeu {}", msg.room_id);
+        }
+    }
 }
 
 impl Actor for Lobby {
@@ -90,8 +101,8 @@ impl Handler<Disconnect> for Lobby {
             if let Some(lobby) = self.rooms.get_mut(&msg.room_id) {
                 if lobby.len() > 1 {
                     lobby.remove(&msg.user.id);
+                    self.disconnecte_room(&msg);
                 } else {
-                    //only one in the lobby, remove it entirely
                     self.rooms.remove(&msg.room_id);
                     self.games.remove(&msg.room_id);
                 }
@@ -117,7 +128,7 @@ impl Handler<Connect> for Lobby {
             .or_insert_with(HashSet::new)
             .insert(msg.self_id.id);
 
-        self.connecte_room(&msg); 
+        self.connecte_room(&msg);
 
         self
             .rooms

@@ -15,6 +15,7 @@ pub struct FaritanyLogique {
     pub joueurs: HashMap<i32, Player>,
     pub tour_commence_at: Option<DateTime<Utc>>,
     pub duree_tour_secondes: i64,
+    pub partie_commencee: bool,
 }
 
 
@@ -26,6 +27,7 @@ impl FaritanyLogique {
             joueurs: HashMap::new(),
             tour_commence_at: None, 
             duree_tour_secondes: reflexion,
+            partie_commencee: false
         }
     }
     pub fn get_role(&self, user_id: &i32) -> Option<&Player> {
@@ -116,7 +118,7 @@ impl GameLogic for FaritanyLogique {
     }
 
     fn handle_deconnect(&mut self, user_id: i32, _user_pseudo: String) -> Option<String> {
-        self.joueurs.remove(&user_id);
+        //self.joueurs.remove(&user_id);
         Some(format!("{} s'est déconnecté.", user_id))
     }
 }
