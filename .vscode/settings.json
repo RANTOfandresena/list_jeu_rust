@@ -1,3 +1,19 @@
 {
-    "postman.settings.dotenv-detection-notification-visibility": false
+    // === Rust-analyzer ===
+    "rust-analyzer.checkOnSave.command": "clippy",      // Vérifie le code avec Clippy à la sauvegarde
+    "rust-analyzer.procMacro.enable": false,            // Désactive l'analyse des proc-macros lourdes
+    "rust-analyzer.cargo.buildScripts.enable": false,  // Désactive l’exécution des build.rs à chaque analyse
+    "rust-analyzer.cargo.allFeatures": false,          // Compile uniquement les features activées par défaut
+    "rust-analyzer.cargo.loadOutDirsFromCheck": false, // Réduit l’analyse des chemins de sortie
+    "rust-analyzer.diagnostics.enable": true,          // Active les diagnostics mais léger
+    "rust-analyzer.inlayHints.enable": false,          // Désactive les hints automatiques pour alléger l’analyse
+    "rust-analyzer.lru.capacity": 2048,                // Limite le cache interne (valeur plus petite = moins de RAM)
+    "rust-analyzer.cachePriming.enable": false,        // Évite le pré-chargement complet du projet
+
+    // === Optionnel : pour les gros projets ===
+    "rust-analyzer.files.excludeDirs": ["target"],     // Ne pas analyser target/
+    "rust-analyzer.cargo.features": [],                // Charge uniquement les features de base
+
+    // === Postman ===
+    "postman.settings.dotenv-detection-notification-visibility": false // Masque notification .env
 }

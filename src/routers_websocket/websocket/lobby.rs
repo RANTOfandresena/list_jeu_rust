@@ -81,6 +81,16 @@ impl Lobby {
             println!("Impossible de connecter à la room pour le type de jeu {}", msg.room_id);
         }
     }
+
+    fn send_message_room(&mut self,room_id: &Uuid, message: &str){
+        if let Some(clients) = self.rooms.get(&room_id) {
+            for client in clients {
+                self.send_message(&message, client);
+            }
+        } else {
+            println!("Aucune room trouvée pour {:?}", &room_id);
+        }
+    }
 }
 
 impl Actor for Lobby {

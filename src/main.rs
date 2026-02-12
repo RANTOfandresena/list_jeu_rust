@@ -60,7 +60,7 @@ async fn main() -> Result<(),MainError> {
         App::new()
             .wrap(
                 Cors::default()
-                    .allowed_origin("http://localhost:8080")
+                    .allowed_origin("http://localhost:8090")
                     .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
                     .allowed_headers(vec![http::header::CONTENT_TYPE, http::header::AUTHORIZATION])
                     .max_age(3600)
