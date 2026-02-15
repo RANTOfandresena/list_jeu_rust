@@ -6,6 +6,7 @@ use crate::list_jeu::faritany::grid::Grid;
 use crate::list_jeu::faritany::message::MessageServeurFaritany;
 use crate::list_jeu::faritany::player::Player;
 use crate::list_jeu::game_logic::GameLogic;
+use crate::list_jeu::game_logic::VecKey;
 use crate::routers_websocket::websocket::messages::{MessageClient};
 
 #[derive(Debug, Clone)]
@@ -39,6 +40,9 @@ impl FaritanyLogique {
             Player::PLAYER_2 => Player::PLAYER_1,
         };
     }
+    fn get_all_joueurs(&self) -> Vec<i32> {
+        self.joueurs.keys().copied().collect()
+    }
 
     fn verifier_tour(&mut self, joueur: Player) -> bool {
         if let Some(debut) = self.tour_commence_at {
@@ -59,14 +63,15 @@ impl FaritanyLogique {
     }
 }
 impl GameLogic for FaritanyLogique {
-    fn handle_client_message(&mut self, message_content: &MessageClient, user_id: &i32) -> Option<String> {
+    fn handle_client_message(&mut self, message_content: &MessageClient, user_id: &i32) -> HashMap<VecKey, String> {
+        let mut map = HashMap::new();
         let role = match self.get_role(user_id) {
             Some(r) => *r,
-            None => return None,
+            None => return map,
         };
 
         if !self.verifier_tour(role) {
-            return None;
+            return map;
         }
 
         let MessageClient::PlaceStone { point, .. } = message_content;
@@ -81,28 +86,33 @@ impl GameLogic for FaritanyLogique {
 
             self.passer_tour();
             self.tour_commence_at = Some(Utc::now());
-
-            return Some(message_server);
+            let all_user_ids: Vec<i32> = self.get_all_joueurs();
+            map.insert(VecKey(all_user_ids), message_server);
+            return map
         }
 
-        None
+        map
     }
 
-    fn handle_connect(&mut self, user_id: i32, user_pseudo: String) -> Option<String> {
+    fn handle_connect(&mut self, user_id: i32, user_pseudo: String) -> HashMap<VecKey, String> {
+        let mut map = HashMap::new();
         if let Some(player) = self.joueurs.get(&user_id) {
             let message = MessageServeurFaritany::ListePointsFaritany { 
                 points: self.grid.get_Cell(),
                 localPlayer: *player,
                 currentPlayer: self.joueur_courant == *player
             };
-            return serde_json::to_string(&message).ok();
+            if let Ok(json) = serde_json::to_string(&message) {
+                map.insert(VecKey(vec![user_id]), json);
+            }
+            return map;
         }
         let role = match self.joueurs.len() {
             0 => Player::PLAYER_1,
             1 => Player::PLAYER_2,
             _ => {
                 println!("Déjà 2 joueurs ont été assignés.");
-                return None;
+                return map;
             }
         };
 
@@ -114,11 +124,19 @@ impl GameLogic for FaritanyLogique {
             currentPlayer: self.joueur_courant == role,
         };
 
-        serde_json::to_string(&message).ok()
+        if let Ok(json) = serde_json::to_string(&message) {
+            map.insert(VecKey(vec![user_id]), json);
+        }
+
+        map
     }
 
-    fn handle_deconnect(&mut self, user_id: i32, _user_pseudo: String) -> Option<String> {
-        //self.joueurs.remove(&user_id);
-        Some(format!("{} s'est déconnecté.", user_id))
+
+    fn handle_deconnect(&mut self, user_id: i32, _user_pseudo: String) -> HashMap<VecKey, String> {
+        // self.joueurs.remove(&user_id);
+        let mut map = HashMap::new();
+        let all_user_ids: Vec<i32> = self.get_all_joueurs();
+        map.insert(VecKey(all_user_ids), format!("{_user_pseudo} s'est déconnecté."));
+        map
     }
 }

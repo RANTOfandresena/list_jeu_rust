@@ -1,8 +1,8 @@
 use actix::prelude::{Actor, Context, Handler, Recipient};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
-
-use crate::{list_jeu::{faritany::faritany_logique::FaritanyLogique, game_logic::GameLogic}, routers_websocket::websocket::messages::{ClientActorMessage, Connect, Disconnect, MessageWebSocket, WsMessage}};
+use std::collections::hash_map::Entry;
+use crate::{list_jeu::{faritany::faritany_logique::FaritanyLogique, game_logic::{GameLogic, VecKey}}, routers_websocket::websocket::messages::{ClientActorMessage, Connect, Disconnect, MessageWebSocket, WsMessage}};
 
 
 type Socket = Recipient<WsMessage>;
@@ -30,53 +30,50 @@ impl Lobby {
 impl Lobby {
     fn send_message(&self, message: &str, id_to: &i32) {
         if let Some(socket_recipient) = self.sessions.get(id_to) {
-            let _ = socket_recipient
-                .do_send(WsMessage(message.to_owned()));
+            socket_recipient.do_send(WsMessage(message.to_owned())); 
         } else {
             println!("attempting to send message but couldn't find user id.");
         }
     }
     fn get_or_create_game(&mut self, room_id: Uuid, game_type: &str) -> Option<&mut Box<dyn GameLogic>> {
-        if !self.games.contains_key(&room_id) {
-            let new_game: Box<dyn GameLogic> = match game_type {
-                "faritany" => Box::new(FaritanyLogique::new(30,30)),
+        match self.games.entry(room_id) {
+            Entry::Vacant(e) => {
+                let new_game: Box<dyn GameLogic> = match game_type {
+                    "faritany" => Box::new(FaritanyLogique::new(30,30)),
                 // "jeu_de_point" => Box::new(JeuDePointLogique::new()),
-                _ => {
-                    println!("Type de jeu inconnu: {}", game_type);
-                    return None;
-                }
-            };
-            self.games.insert(room_id, new_game);
+                    _ => {
+                        println!("Type de jeu inconnu: {game_type}");
+                        return None;
+                    }
+                };
+                e.insert(new_game);
+            }
+            Entry::Occupied(_) => {}
         }
         self.games.get_mut(&room_id)
     }
     
-    fn action_type_game(&mut self, msg: &ClientActorMessage) -> Option<String> {
+    fn action_type_game(&mut self, msg: &ClientActorMessage) -> HashMap<VecKey, String> {
         if let Some(game_instance) = self.get_or_create_game(msg.room_id, &msg.type_jeu) {
             game_instance.handle_client_message(&msg.msg, &msg.user.id)
         } else {
-            None
+            HashMap::new()
         }
     }
 
-    fn connecte_room(&mut self, msg: &Connect){
+    fn connecte_room(&mut self, msg: &Connect) {
         if let Some(game_instance) = self.get_or_create_game(msg.lobby_id, &msg.type_jeu) {
-            if let Some(data) = game_instance.handle_connect(msg.self_id.id, msg.self_id.pseudo.clone()) {
-                self.send_message(&data, &msg.self_id.id);
-            } else {
-                println!("Aucun message à envoyer après la connexion ou gestion interne par le jeu.");
-            }
+            let messages = game_instance.handle_connect(msg.self_id.id, msg.self_id.pseudo.clone());
+            self.broadcast_messages(msg.lobby_id, messages);
         } else {
             println!("Impossible de connecter à la room pour le type de jeu {}", msg.type_jeu);
         }
     }
-    fn disconnecte_room(&mut self, msg: &Disconnect){
+
+    fn disconnecte_room(&mut self, msg: &Disconnect) {
         if let Some(game_instance) = self.games.get_mut(&msg.room_id) {
-            if let Some(data) = game_instance.handle_deconnect(msg.user.id, msg.user.pseudo.clone()) {
-                self.send_message(&data, &msg.user.id);
-            } else {
-                println!("Aucun message à envoyer après la connexion ou gestion interne par le jeu.");
-            }
+            let messages = game_instance.handle_deconnect(msg.user.id, msg.user.pseudo.clone());
+            self.broadcast_messages(msg.room_id, messages);
         } else {
             println!("Impossible de connecter à la room pour le type de jeu {}", msg.room_id);
         }
@@ -89,6 +86,26 @@ impl Lobby {
             }
         } else {
             println!("Aucune room trouvée pour {:?}", &room_id);
+        }
+    }
+
+    fn broadcast_messages(&self, room_id: Uuid, messages: HashMap<VecKey, String>) {
+        if let Some(clients) = self.rooms.get(&room_id) {
+            for (veckey, message) in messages {
+                let targets_iter: Box<dyn Iterator<Item = &i32>> = if veckey.0.is_empty() {
+                    Box::new(clients.iter())
+                } else {
+                    Box::new(veckey.0.iter())
+                };
+
+                for user_id in targets_iter {
+                    if clients.contains(user_id) {
+                        self.send_message(&message, user_id);
+                    }
+                }
+            }
+        } else {
+            println!("Aucune room trouvée pour {:?}", room_id);
         }
     }
 }
@@ -174,14 +191,7 @@ impl Handler<ClientActorMessage> for Lobby {
     type Result = ();
 
     fn handle(&mut self, msg: ClientActorMessage, _ctx: &mut Context<Self>) -> Self::Result {
-        if let Some(message) = self.action_type_game(&msg) {
-            if let Some(clients) = self.rooms.get(&msg.room_id) {
-                for client in clients {
-                    self.send_message(&message, client);
-                }
-            } else {
-                println!("Aucune room trouvée pour {:?}", msg.room_id);
-            }
-        }
+        let messages = self.action_type_game(&msg); 
+        self.broadcast_messages(msg.room_id, messages);
     }
 }
