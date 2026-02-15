@@ -2,7 +2,7 @@ use actix::prelude::{Actor, Context, Handler, Recipient};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
-use crate::{list_jeu::{faritany::faritany_logique::FaritanyLogique, game_logic::GameLogic}, routers_websocket::websocket::messages::{ClientActorMessage, Connect, Disconnect, WsMessage}};
+use crate::{list_jeu::{faritany::faritany_logique::FaritanyLogique, game_logic::GameLogic}, routers_websocket::websocket::messages::{ClientActorMessage, Connect, Disconnect, MessageWebSocket, WsMessage}};
 
 
 type Socket = Recipient<WsMessage>;
@@ -102,12 +102,20 @@ impl Handler<Disconnect> for Lobby {
 
     fn handle(&mut self, msg: Disconnect, _: &mut Context<Self>) {
         if self.sessions.remove(&msg.user.id).is_some() {
+
+            let message = MessageWebSocket::UserDisconnected {
+                user_id: msg.user.id,
+                pseudo: msg.user.pseudo.clone(),
+            };
+
+            let json = serde_json::to_string(&message).unwrap();
+
             self.rooms
                 .get(&msg.room_id)
                 .unwrap()
                 .iter()
                 .filter(|conn_id| *conn_id.to_owned() != msg.user.id)
-                .for_each(|user_id| self.send_message(&format!("{} disconnected.", &msg.user.id), user_id));
+                .for_each(|user_id| self.send_message(&json, user_id));
             if let Some(lobby) = self.rooms.get_mut(&msg.room_id) {
                 if lobby.len() > 1 {
                     lobby.remove(&msg.user.id);
@@ -140,13 +148,22 @@ impl Handler<Connect> for Lobby {
 
         self.connecte_room(&msg);
 
+        
+        let message = MessageWebSocket::UserJoined {
+            user_id: msg.self_id.id,
+            pseudo: msg.self_id.pseudo.clone(),
+        };
+
+        let json = serde_json::to_string(&message).unwrap();
+
+
         self
             .rooms
             .get(&msg.lobby_id)
             .unwrap()
             .iter()
             .filter(|conn_id| **conn_id != msg.self_id.id)
-            .for_each(|conn_id| self.send_message(&format!("{} just joined!", msg.self_id.pseudo), conn_id));
+            .for_each(|conn_id| self.send_message(&json, conn_id));
 
         
         // self.send_message(&format!("your id is {}", msg.self_id.id), &msg.self_id.id);

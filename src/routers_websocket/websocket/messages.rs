@@ -41,4 +41,25 @@ pub enum MessageClient {
     },
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum MessageWebSocket {
 
+    #[serde(rename = "user_joined")]
+    UserJoined {
+        user_id: i32,
+        pseudo: String,
+    },
+
+    #[serde(rename = "user_disconnected")]
+    UserDisconnected {
+        user_id: i32,
+        pseudo: String,
+    },
+
+    #[serde(rename = "chat")]
+    Chat {
+        user_id: i32,
+        message: String,
+    },
+}
