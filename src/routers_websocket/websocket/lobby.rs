@@ -105,7 +105,7 @@ impl Lobby {
                 }
             }
         } else {
-            println!("Aucune room trouvée pour {:?}", room_id);
+            println!("Aucune room trouvée pour {room_id:?}");
         }
     }
 }
