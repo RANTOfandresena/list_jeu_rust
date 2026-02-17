@@ -70,7 +70,7 @@ impl GameLogic for FaritanyLogique {
             None => return map,
         };
 
-        if !self.verifier_tour(role) {
+        if !self.verifier_tour(role) || !self.partie_commencee {
             return map;
         }
 
@@ -127,12 +127,17 @@ impl GameLogic for FaritanyLogique {
         if let Ok(json) = serde_json::to_string(&message) {
             map.insert(VecKey(vec![user_id]), json);
         }
-        let start_message = serde_json::json!({
-            "start_game": self.partie_commencee
-        });
 
-        if let Ok(json) = serde_json::to_string(&start_message) {
-            map.insert(VecKey(vec![]), json);
+        if(self.joueurs.len() <= 2){
+
+            self.partie_commencee = true;
+            let start_message = serde_json::json!({
+                "start_game": true
+            });
+
+            if let Ok(json) = serde_json::to_string(&start_message) {
+                map.insert(VecKey(vec![]), json);
+            }
         }
         
         map
