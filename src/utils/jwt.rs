@@ -44,10 +44,9 @@ pub fn encode_jwt(pseudo: String, id: i32) -> Result<String,jsonwebtoken::errors
 }
 pub fn decode_jwt(jwt: String) -> Result<TokenData<Claims>,jsonwebtoken::errors::Error>{
     let secret = (*constants::SECRET).clone();
-    let claim_jwt: Result<TokenData<Claims>,jsonwebtoken::errors::Error> = decode(
+    decode(
         &jwt,
         &DecodingKey::from_secret(secret.as_ref()),
         &Validation::default()
-    );
-    claim_jwt
+    )
 }
