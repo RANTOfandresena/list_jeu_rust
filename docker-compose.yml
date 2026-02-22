@@ -1,11 +1,11 @@
-version: '3.8'
+# version: '3.8'
 
 services:
   postgres:
     image: postgres:16-alpine
     container_name: list_jeu_postgres
     environment:
-      POSTGRES_USER: list_jeudb
+      POSTGRES_USER: creacom
       POSTGRES_PASSWORD: a
       POSTGRES_DB: list_jeu
     ports:
@@ -13,7 +13,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U list_jeudb"]
+      test: ["CMD-SHELL", "pg_isready -U creacom"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,7 +26,7 @@ services:
     environment:
       ADDRESS: 0.0.0.0
       PORT: 8090
-      DATABASE_URL: postgres://list_jeudb:a@postgres:5432/list_jeu
+      DATABASE_URL: postgres://creacom:a@postgres:5432/list_jeu
       SECRET: klkj-kljkl-jhjj-kjkj
       RUST_LOG: actix_web=info
     ports:
