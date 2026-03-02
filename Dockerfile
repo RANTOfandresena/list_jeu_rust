@@ -1,18 +1,23 @@
-# Stage 1: Build
-FROM rust:latest as builder
+# ---------------- BUILD ----------------
+FROM rust:1.93.1-slim AS builder
 
 WORKDIR /app
 
-# Copy the entire project
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copier tout le workspace directement
 COPY . .
 
-# Build the project
+# Build release
 RUN cargo build --release
 
-# Stage 2: Runtime
+# ---------------- RUNTIME ----------------
 FROM debian:bookworm-slim
 
-# Install required dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
@@ -20,11 +25,8 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy the binary from the builder stage
-COPY --from=builder /app/target/release/backend /app/backend
+COPY --from=builder /app/target/release/backend .
 
-# Expose the port
 EXPOSE 8090
 
-# Run the application
 CMD ["./backend"]
